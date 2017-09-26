@@ -3,6 +3,7 @@ package goirc
 import (
 	"fmt"
 	"net"
+	"strings"
 )
 
 // Bot - Main bot class
@@ -19,6 +20,10 @@ func (b Bot) Connect(config Configuration) {
 
 	var input string
 	fmt.Scanln(&input)
+
+	if b.server != nil {
+		b.server.Close()
+	}
 }
 
 func (b Bot) serverPump() {
@@ -39,7 +44,7 @@ func (b Bot) serverPump() {
 	shouldLoop := true
 	for shouldLoop {
 		var data [512]byte
-		_, readErr := conn.Read(data[0:])
+		n, readErr := conn.Read(data[0:])
 
 		if readErr != nil {
 			fmt.Printf("Failed reading: %s", readErr)
@@ -47,7 +52,7 @@ func (b Bot) serverPump() {
 		}
 
 		if len(data) != 0 {
-			fmt.Printf("Server: %s\n", data)
+			b.processServerResponse(string(data[:n]))
 		} else {
 			//shouldLoop = false
 		}
@@ -67,4 +72,24 @@ func (b Bot) sendRawCommand(command string, message string) {
 
 	b.server.Write([]byte(commandString + "\r\n"))
 	fmt.Println("-> " + commandString)
+}
+
+func (b Bot) processServerResponse(response string) {
+
+	if response == "" {
+		return
+	}
+
+	response = strings.TrimRight(response, "\r\n")
+
+	//Check to see if this is a compound set of lines seperated by \n and if so run them through individually
+	if strings.Contains(response, "\n") {
+		stringSlice := strings.Split(response, "\n")
+
+		for i := 0; i < len(stringSlice); i++ {
+			b.processServerResponse(stringSlice[i])
+		}
+	}
+
+	fmt.Println("<- " + response)
 }
