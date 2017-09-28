@@ -108,6 +108,12 @@ func (b Bot) processServerResponse(response string) {
 	if strings.HasPrefix(response, ":") {
 		if strings.Contains(segments[0], "!") {
 			//This is a username
+			if segments[1] == "PRIVMSG" {
+				message := IRCMessage{}
+				message.FromServerResponse(response)
+
+				b.onUserMessage(message)
+			}
 		} else {
 			//This is a server message
 			if len(segments) > 1 {
@@ -132,4 +138,12 @@ func (b Bot) onMOTDEnd() {
 
 func (b Bot) onConnected() {
 	b.sendRawCommand("JOIN", b.config.Channel)
+}
+
+func (b Bot) onUserMessage(message IRCMessage) {
+	fmt.Printf("%s with %s\n", message.Command, message.Parameters)
+	if message.Command == "!say" {
+		b.sendRawCommand("PRIVMSG", message.Channel+" "+message.Parameters)
+	}
+
 }
