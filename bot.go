@@ -143,7 +143,7 @@ func (b Bot) onConnected() {
 func (b Bot) onUserMessage(message IRCMessage) {
 	fmt.Printf("%s with %s\n", message.Command, message.Parameters)
 	if message.Command == "!say" {
-		b.sendRawCommand("PRIVMSG", message.Channel+" "+message.Parameters)
+		b.sendRawCommand("PRIVMSG", message.Channel+" :"+message.Parameters)
 	}
 
 }
