@@ -89,7 +89,47 @@ func (b Bot) processServerResponse(response string) {
 		for i := 0; i < len(stringSlice); i++ {
 			b.processServerResponse(stringSlice[i])
 		}
+		return
 	}
 
 	fmt.Println("<- " + response)
+
+	segments := strings.Split(response, " ")
+
+	if len(segments) == 0 {
+		return
+	}
+
+	if segments[0] == "PING" {
+		b.sendRawCommand("PONG", segments[1])
+		return
+	}
+
+	if strings.HasPrefix(response, ":") {
+		if strings.Contains(segments[0], "!") {
+			//This is a username
+		} else {
+			//This is a server message
+			if len(segments) > 1 {
+				b.respondToServerEvent(segments[1], segments)
+			}
+		}
+	}
+}
+
+func (b Bot) respondToServerEvent(event string, parameters []string) {
+	switch event {
+	case "376":
+		b.onMOTDEnd()
+	case "396":
+		b.onConnected()
+	}
+}
+
+func (b Bot) onMOTDEnd() {
+	//b.sendRawCommand("JOIN", b.config.Channel)
+}
+
+func (b Bot) onConnected() {
+	b.sendRawCommand("JOIN", b.config.Channel)
 }
