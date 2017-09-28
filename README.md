@@ -1,8 +1,6 @@
 # goirc
 Teaching myself go. This is (will be) an attempt at building a super simple irc bot in golang.
 
-This isn't even remotely close to working yet.
-
 ## Example
 
 	c := goirc.Configuration{}
@@ -12,6 +10,8 @@ This isn't even remotely close to working yet.
 	c.RealName = "justabot"
 	c.Channel = "#channel"
 	c.Timeout = 3
+    c.Debug = true
+    c.Identd = false
 
 	b := goirc.Bot{}
 	b.Connect(c)
