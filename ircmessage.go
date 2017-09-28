@@ -29,6 +29,8 @@ func (m *IRCMessage) FromServerResponse(response string) {
 		if space != -1 {
 			m.Command = strings.ToLower(m.Message[0:space])
 			m.Parameters = m.Message[space+1:]
+		} else {
+			m.Command = strings.ToLower(m.Message)
 		}
 	}
 }

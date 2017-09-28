@@ -9,4 +9,6 @@ type Configuration struct {
 	Channel  string
 
 	Timeout int
+	Debug   bool
+	Identd  bool
 }

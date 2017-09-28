@@ -4,17 +4,24 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
 // Bot - Main bot class
 type Bot struct {
 	config Configuration
 	server net.Conn
+	start  time.Time
 }
 
 // Connect - connect to a server
 func (b Bot) Connect(config Configuration) {
 	b.config = config
+	b.start = time.Now()
+
+	if b.config.Identd {
+		go b.runIdentdServer()
+	}
 
 	go b.serverPump()
 
@@ -53,14 +60,60 @@ func (b Bot) serverPump() {
 
 		if len(data) != 0 {
 			b.processServerResponse(string(data[:n]))
-		} else {
-			//shouldLoop = false
 		}
-
 	}
 
 	fmt.Println("Closing connection...")
 	conn.Close()
+}
+
+func (b Bot) runIdentdServer() {
+	fmt.Println("Running identd server...")
+
+	ln, err := net.Listen("tcp", ":113")
+	if err != nil || ln == nil {
+		fmt.Println("Identd failed to bind on port 113...")
+		return
+	}
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			fmt.Printf("Identd failed to accept connection: %s\n", err)
+			return
+		}
+
+		request := ""
+
+		for {
+			var data [512]byte
+			n, readErr := conn.Read(data[0:])
+
+			if readErr != nil {
+				fmt.Printf("Identd failed to read incoming connection: %s\n", readErr)
+			}
+
+			if n != 0 {
+				request = string(data[:n])
+
+				if strings.Contains(request, ", ") {
+					break
+				}
+			}
+		}
+
+		fmt.Println(request)
+		requestPorts := strings.Split(request, ", ")
+
+		response := requestPorts[0] + ", " + requestPorts[1] + " : USERID : UNIX : " + b.config.RealName
+
+		fmt.Println("Identd " + request + " -> " + response)
+		fmt.Fprintf(conn, response)
+
+		break
+	}
+
+	fmt.Println("Closing down identd server...")
 }
 
 func (b Bot) sendRawCommand(command string, message string) {
@@ -71,7 +124,10 @@ func (b Bot) sendRawCommand(command string, message string) {
 	}
 
 	b.server.Write([]byte(commandString + "\r\n"))
-	fmt.Println("-> " + commandString)
+
+	if b.config.Debug {
+		fmt.Println("-> " + commandString)
+	}
 }
 
 func (b Bot) processServerResponse(response string) {
@@ -92,7 +148,9 @@ func (b Bot) processServerResponse(response string) {
 		return
 	}
 
-	fmt.Println("<- " + response)
+	if b.config.Debug {
+		fmt.Println("<- " + response)
+	}
 
 	segments := strings.Split(response, " ")
 
@@ -137,13 +195,37 @@ func (b Bot) onMOTDEnd() {
 }
 
 func (b Bot) onConnected() {
+	fmt.Printf("Connected to %s:%d!\n", b.config.Server, b.config.Port)
 	b.sendRawCommand("JOIN", b.config.Channel)
 }
 
 func (b Bot) onUserMessage(message IRCMessage) {
-	fmt.Printf("%s with %s\n", message.Command, message.Parameters)
 	if message.Command == "!say" {
 		b.sendRawCommand("PRIVMSG", message.Channel+" :"+message.Parameters)
 	}
+
+	if message.Command == "!join" {
+		b.sendRawCommand("JOIN", message.Parameters)
+	}
+
+	if message.Command == "!part" {
+		b.sendRawCommand("PART", message.Parameters)
+	}
+
+	if message.Command == "!sv" {
+		b.sendRawCommand("PRIVMSG", message.Channel+" :ericsalerno/go-irc 1.0, fork me on github... or don't, I'm not the police.")
+	}
+
+	if message.Command == "!uptime" {
+		now := time.Now()
+		now.Sub(b.start)
+
+		uptime := fmt.Sprintf("I've been running for %s seconds!", now.String())
+		b.sendRawCommand("PRIVMSG", message.Channel+" :I've been running for "+uptime)
+	}
+
+	/*if message.Command == "!quit" {
+		b.sendRawCommand("QUIT", message.Parameters)
+	}*/
 
 }
